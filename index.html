@@ -1,12 +1,10 @@
+<!DOCTYPE html>
+<html lang="ja">
 <head>
 <meta charset="UTF-8">
 <meta name="apple-mobile-web-app-title" content="経理">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<link rel="apple-touch-icon" href="icon.png">
-
 <title>かんたん帳簿</title>
 
 <style>
@@ -91,14 +89,27 @@ input[type="date"] {
 
 <script>
 
-// ===== ログイン =====
-const USER="admin";
-const PASS="1234";
+<script>
+
+// ===== ログイン（複数ユーザー）=====
+const users = {
+  "admin": "1234",
+  "mama": "5678"
+};
+
+let currentUser = "";
 
 function login(){
-  if(id.value===USER && pass.value===PASS){
+  const idValue = id.value;
+  const passValue = pass.value;
+
+  if(users[idValue] && users[idValue] === passValue){
+    currentUser = idValue;
+
     loginArea.classList.add("hidden");
     mainArea.classList.remove("hidden");
+
+    loadData(); // ←ログイン時に読み込み
   }else{
     alert("IDかパスワード違います");
   }
@@ -121,10 +132,26 @@ rate.addEventListener("input",()=>{
   finalAmount.value=Math.floor(amount.value*rate.value/100);
 });
 
-// ===== データ =====
+// ===== データ（ユーザー別）=====
 let sales=[];
 let expense=[];
 
+function getKey(type){
+  return type + "_" + currentUser;
+}
+
+function saveData(){
+  localStorage.setItem(getKey("sales"), JSON.stringify(sales));
+  localStorage.setItem(getKey("expense"), JSON.stringify(expense));
+}
+
+function loadData(){
+  sales = JSON.parse(localStorage.getItem(getKey("sales"))) || [];
+  expense = JSON.parse(localStorage.getItem(getKey("expense"))) || [];
+  calc();
+}
+
+// ===== 追加 =====
 function addData(){
   if(mode.value==="売上"){
     sales.push({
@@ -135,6 +162,8 @@ function addData(){
       amount:Number(finalAmount.value)
     });
   }
+
+  saveData(); // ←ユーザーごとに保存
   calc();
 }
 
