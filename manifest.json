@@ -1,6 +1,6 @@
 {
   "name": "経理アプリ",
-  "short_name": "経理",
+  "short_name": "かんたん帳簿",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#ffffff",
