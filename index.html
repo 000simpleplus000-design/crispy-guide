@@ -3,28 +3,37 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Simple+ 経理システム</title>
+<title>Simple+ 経理</title>
 
 <style>
 body { font-family: sans-serif; padding: 10px; }
-input, select, button { width: 100%; margin: 5px 0; padding: 10px; }
-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size:12px;}
-th, td { border: 1px solid #ccc; padding: 5px; text-align: center; }
-h3 { margin-top:20px;}
+input, select, button { width:100%; margin:5px 0; padding:10px; }
+.hidden { display:none; }
 </style>
 </head>
 
 <body>
 
-<h2>Simple+ 経理システム</h2>
+<!-- ログイン画面 -->
+<div id="loginArea">
+<h2>ログイン</h2>
+<input type="text" id="id" placeholder="ID">
+<input type="password" id="pass" placeholder="パスワード">
+<button onclick="login()">ログイン</button>
+</div>
+
+<!-- メイン -->
+<div id="mainArea" class="hidden">
+
+<h2>経理システム</h2>
 
 <select id="mode">
-  <option value="売上">売上入力</option>
-  <option value="経費">経費入力</option>
+<option value="売上">売上</option>
+<option value="経費">経費</option>
 </select>
 
 <input type="date" id="date">
-<input type="text" id="month" placeholder="月" readonly>
+<input type="text" id="month" readonly placeholder="月">
 
 <!-- 売上 -->
 <div id="salesArea">
@@ -35,177 +44,99 @@ h3 { margin-top:20px;}
 <option>その他</option>
 </select>
 
-<input type="text" id="salesAccount" placeholder="勘定科目">
+<select id="salesAccount">
+<option>売上</option>
+<option>雑収入</option>
+</select>
+
 <input type="number" id="salesAmount" placeholder="売上金額">
 <input type="text" id="salesNote" placeholder="備考">
 </div>
 
 <!-- 経費 -->
-<div id="expenseArea" style="display:none;">
-<input type="text" id="expenseAccount" placeholder="勘定科目">
-<input type="text" id="payment" placeholder="支払方法">
+<div id="expenseArea" class="hidden">
+<select id="expenseAccount">
+<option>通信費</option>
+<option>サブスク</option>
+<option>仕入</option>
+<option>交通費</option>
+<option>雑費</option>
+</select>
+
+<select id="payment">
+<option>現金</option>
+<option>クレカ</option>
+<option>電子マネー</option>
+</select>
+
 <input type="number" id="amount" placeholder="支払金額">
-<input type="number" id="rate" placeholder="按分率(%)">
-<input type="number" id="finalAmount" placeholder="経費計上額" readonly>
+<input type="number" id="rate" placeholder="按分率">
+<input type="number" id="finalAmount" readonly placeholder="経費計上額">
 <input type="text" id="expenseNote" placeholder="備考">
 </div>
 
 <button onclick="addData()">追加</button>
 
-<h3>📊 月別集計</h3>
-<select id="monthFilter"></select>
 <div id="summary"></div>
 
-<h3>📄 売上管理</h3>
-<table>
-<thead>
-<tr>
-<th>日付</th><th>月</th><th>売上区分</th><th>勘定科目</th><th>売上金額</th><th>備考</th>
-</tr>
-</thead>
-<tbody id="salesList"></tbody>
-</table>
-
-<h3>📄 経費管理</h3>
-<table>
-<thead>
-<tr>
-<th>日付</th><th>月</th><th>勘定科目</th><th>支払方法</th><th>支払金額</th><th>按分率</th><th>経費計上額</th><th>備考</th>
-</tr>
-</thead>
-<tbody id="expenseList"></tbody>
-</table>
-
-<button onclick="downloadCSV()">CSVダウンロード</button>
+</div>
 
 <script>
-let sales = JSON.parse(localStorage.getItem("sales")) || [];
-let expense = JSON.parse(localStorage.getItem("expense")) || [];
 
-// 月自動
-date.addEventListener("change", ()=>{
-  const d = new Date(date.value);
-  month.value = d.getMonth()+1;
-});
+// ===== ログイン =====
+const USER="admin";
+const PASS="1234";
 
-// モード切替
-mode.addEventListener("change", ()=>{
-  salesArea.style.display = mode.value==="売上"?"block":"none";
-  expenseArea.style.display = mode.value==="経費"?"block":"none";
-});
-
-// 按分
-rate.addEventListener("input", ()=>{
-  finalAmount.value = Math.floor(amount.value * rate.value / 100);
-});
-
-// 追加
-function addData(){
-  const m = month.value;
-
-  if(mode.value==="売上"){
-    sales.push({
-      date:date.value,
-      month:m,
-      category:salesCategory.value,
-      account:salesAccount.value,
-      amount:Number(salesAmount.value),
-      note:salesNote.value
-    });
-    localStorage.setItem("sales", JSON.stringify(sales));
+function login(){
+  if(id.value===USER && pass.value===PASS){
+    loginArea.classList.add("hidden");
+    mainArea.classList.remove("hidden");
   }else{
-    expense.push({
-      date:date.value,
-      month:m,
-      account:expenseAccount.value,
-      payment:payment.value,
-      amount:Number(amount.value),
-      rate:Number(rate.value),
-      final:Number(finalAmount.value),
-      note:expenseNote.value
-    });
-    localStorage.setItem("expense", JSON.stringify(expense));
+    alert("IDかパスワード違います");
   }
-
-  render();
 }
 
-// 描画
-function render(){
-  // 売上
-  salesList.innerHTML="";
-  sales.forEach(d=>{
-    salesList.innerHTML += `<tr>
-<td>${d.date}</td><td>${d.month}</td><td>${d.category}</td>
-<td>${d.account}</td><td>${d.amount}</td><td>${d.note}</td>
-</tr>`;
-  });
+// ===== 月自動 =====
+date.addEventListener("change",()=>{
+  const d=new Date(date.value);
+  month.value=d.getMonth()+1;
+});
 
-  // 経費
-  expenseList.innerHTML="";
-  expense.forEach(d=>{
-    expenseList.innerHTML += `<tr>
-<td>${d.date}</td><td>${d.month}</td><td>${d.account}</td>
-<td>${d.payment}</td><td>${d.amount}</td><td>${d.rate}</td>
-<td>${d.final}</td><td>${d.note}</td>
-</tr>`;
-  });
+// ===== モード切替 =====
+mode.addEventListener("change",()=>{
+  salesArea.classList.toggle("hidden", mode.value!=="売上");
+  expenseArea.classList.toggle("hidden", mode.value!=="経費");
+});
 
-  updateMonthFilter();
+// ===== 按分 =====
+rate.addEventListener("input",()=>{
+  finalAmount.value=Math.floor(amount.value*rate.value/100);
+});
+
+// ===== データ =====
+let sales=[];
+let expense=[];
+
+function addData(){
+  if(mode.value==="売上"){
+    sales.push({
+      amount:Number(salesAmount.value)
+    });
+  }else{
+    expense.push({
+      amount:Number(finalAmount.value)
+    });
+  }
   calc();
 }
 
-// 月フィルター
-function updateMonthFilter(){
-  let months = [...new Set([...sales.map(s=>s.month), ...expense.map(e=>e.month)])];
-  monthFilter.innerHTML="";
-  months.forEach(m=>{
-    monthFilter.innerHTML += `<option>${m}</option>`;
-  });
-}
-
-// SUMIF再現
+// ===== 集計 =====
 function calc(){
-  const m = monthFilter.value;
-
-  const salesTotal = sales
-    .filter(s=>s.month==m)
-    .reduce((a,b)=>a+b.amount,0);
-
-  const expenseTotal = expense
-    .filter(e=>e.month==m)
-    .reduce((a,b)=>a+b.final,0);
-
-  const profit = salesTotal - expenseTotal;
-
-  summary.innerHTML =
-    `売上合計：${salesTotal}円<br>
-     経費合計：${expenseTotal}円<br>
-     利益：${profit}円`;
+  let s=sales.reduce((a,b)=>a+b.amount,0);
+  let e=expense.reduce((a,b)=>a+b.amount,0);
+  summary.innerHTML=`売上:${s}円 / 経費:${e}円 / 利益:${s-e}円`;
 }
 
-// CSV（シート形式）
-function downloadCSV(){
-  let csv="売上管理\n日付,月,売上区分,勘定科目,売上金額,備考\n";
-  sales.forEach(s=>{
-    csv += `${s.date},${s.month},${s.category},${s.account},${s.amount},${s.note}\n`;
-  });
-
-  csv+="\n経費管理\n日付,月,勘定科目,支払方法,支払金額,按分率,経費計上額,備考\n";
-  expense.forEach(e=>{
-    csv += `${e.date},${e.month},${e.account},${e.payment},${e.amount},${e.rate},${e.final},${e.note}\n`;
-  });
-
-  const blob=new Blob([csv],{type:"text/csv"});
-  const link=document.createElement("a");
-  link.href=URL.createObjectURL(blob);
-  link.download="keiri.csv";
-  link.click();
-}
-
-monthFilter.addEventListener("change", calc);
-
-render();
 </script>
 
 </body>
