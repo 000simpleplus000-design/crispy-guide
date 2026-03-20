@@ -3,215 +3,209 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>経理アプリ</title>
-
-<!-- PWA -->
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon.png">
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<title>Simple+ 経理システム</title>
 
 <style>
-body {
-  font-family: -apple-system;
-  background: #f2f2f7;
-  margin: 0;
-}
-
-.card {
-  background: white;
-  margin: 12px;
-  padding: 16px;
-  border-radius: 16px;
-}
-
-input, select, button {
-  width: 100%;
-  padding: 12px;
-  margin-bottom: 10px;
-  border-radius: 8px;
-}
-
-button {
-  background: linear-gradient(135deg, #007AFF, #5AC8FA);
-  color: white;
-  border: none;
-}
-
-.delete-btn { background: red; }
-.row { display:flex; justify-content:space-between; }
+body { font-family: sans-serif; padding: 10px; }
+input, select, button { width: 100%; margin: 5px 0; padding: 10px; }
+table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size:12px;}
+th, td { border: 1px solid #ccc; padding: 5px; text-align: center; }
+h3 { margin-top:20px;}
 </style>
 </head>
 
 <body>
 
-<div class="card">
-<h2>ログイン</h2>
-<button id="loginBtn">Googleログイン</button>
-<div id="user"></div>
+<h2>Simple+ 経理システム</h2>
+
+<select id="mode">
+  <option value="売上">売上入力</option>
+  <option value="経費">経費入力</option>
+</select>
+
+<input type="date" id="date">
+<input type="text" id="month" placeholder="月" readonly>
+
+<!-- 売上 -->
+<div id="salesArea">
+<select id="salesCategory">
+<option>LINE</option>
+<option>BOOTH</option>
+<option>Kindle</option>
+<option>その他</option>
+</select>
+
+<input type="text" id="salesAccount" placeholder="勘定科目">
+<input type="number" id="salesAmount" placeholder="売上金額">
+<input type="text" id="salesNote" placeholder="備考">
 </div>
 
-<div class="card">
-<h2>入力</h2>
-<input type="date" id="date">
+<!-- 経費 -->
+<div id="expenseArea" style="display:none;">
+<input type="text" id="expenseAccount" placeholder="勘定科目">
+<input type="text" id="payment" placeholder="支払方法">
+<input type="number" id="amount" placeholder="支払金額">
+<input type="number" id="rate" placeholder="按分率(%)">
+<input type="number" id="finalAmount" placeholder="経費計上額" readonly>
+<input type="text" id="expenseNote" placeholder="備考">
+</div>
 
-<select id="type">
-<option value="income">売上</option>
-<option value="expense">経費</option>
-</select>
+<button onclick="addData()">追加</button>
 
-<select id="category">
-<option>通信費</option>
-<option>サブスク</option>
-<option>消耗品費</option>
-<option>地代家賃</option>
-<option>支払手数料</option>
-<option>雑費</option>
-</select>
+<h3>📊 月別集計</h3>
+<select id="monthFilter"></select>
+<div id="summary"></div>
 
-<input type="number" id="amount">
-<button id="addBtn">追加</button>
+<h3>📄 売上管理</h3>
+<table>
+<thead>
+<tr>
+<th>日付</th><th>月</th><th>売上区分</th><th>勘定科目</th><th>売上金額</th><th>備考</th>
+</tr>
+</thead>
+<tbody id="salesList"></tbody>
+</table>
+
+<h3>📄 経費管理</h3>
+<table>
+<thead>
+<tr>
+<th>日付</th><th>月</th><th>勘定科目</th><th>支払方法</th><th>支払金額</th><th>按分率</th><th>経費計上額</th><th>備考</th>
+</tr>
+</thead>
+<tbody id="expenseList"></tbody>
+</table>
 
 <button onclick="downloadCSV()">CSVダウンロード</button>
-</div>
 
-<div class="card">
-<h3>集計</h3>
-<div id="summary"></div>
-</div>
+<script>
+let sales = JSON.parse(localStorage.getItem("sales")) || [];
+let expense = JSON.parse(localStorage.getItem("expense")) || [];
 
-<div class="card">
-<canvas id="chart"></canvas>
-</div>
-
-<div class="card">
-<div id="list"></div>
-</div>
-
-<script type="module">
-
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-import {
-  getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, where
-} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
-
-import {
-  getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-
-const firebaseConfig = {
-  apiKey: "ここ",
-  authDomain: "ここ",
-  projectId: "ここ",
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth(app);
-const provider = new GoogleAuthProvider();
-
-let data = [];
-
-document.getElementById("loginBtn").onclick = () => {
-  signInWithPopup(auth, provider);
-};
-
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    document.getElementById("user").innerText = user.email;
-    loadData(user.uid);
-  }
+// 月自動
+date.addEventListener("change", ()=>{
+  const d = new Date(date.value);
+  month.value = d.getMonth()+1;
 });
 
-document.getElementById("addBtn").onclick = async () => {
-  const user = auth.currentUser;
-  if (!user) return alert("ログインしてください");
+// モード切替
+mode.addEventListener("change", ()=>{
+  salesArea.style.display = mode.value==="売上"?"block":"none";
+  expenseArea.style.display = mode.value==="経費"?"block":"none";
+});
 
-  const date = document.getElementById("date").value;
-  const type = document.getElementById("type").value;
-  const category = document.getElementById("category").value;
-  const amount = Number(document.getElementById("amount").value);
+// 按分
+rate.addEventListener("input", ()=>{
+  finalAmount.value = Math.floor(amount.value * rate.value / 100);
+});
 
-  await addDoc(collection(db, "keiri"), {
-    uid: user.uid, date, type, category, amount
-  });
+// 追加
+function addData(){
+  const m = month.value;
 
-  loadData(user.uid);
-};
-
-window.deleteItem = async (id) => {
-  await deleteDoc(doc(db, "keiri", id));
-  loadData(auth.currentUser.uid);
-};
-
-async function loadData(uid) {
-  const q = query(collection(db, "keiri"), where("uid", "==", uid));
-  const snapshot = await getDocs(q);
-
-  data = [];
-  snapshot.forEach(d => data.push({ id: d.id, ...d.data() }));
+  if(mode.value==="売上"){
+    sales.push({
+      date:date.value,
+      month:m,
+      category:salesCategory.value,
+      account:salesAccount.value,
+      amount:Number(salesAmount.value),
+      note:salesNote.value
+    });
+    localStorage.setItem("sales", JSON.stringify(sales));
+  }else{
+    expense.push({
+      date:date.value,
+      month:m,
+      account:expenseAccount.value,
+      payment:payment.value,
+      amount:Number(amount.value),
+      rate:Number(rate.value),
+      final:Number(finalAmount.value),
+      note:expenseNote.value
+    });
+    localStorage.setItem("expense", JSON.stringify(expense));
+  }
 
   render();
 }
 
-function render() {
-  const list = document.getElementById("list");
-  list.innerHTML = "";
-
-  let income = 0;
-  let expense = 0;
-  let categoryTotals = {};
-  const month = new Date().toISOString().slice(0,7);
-
-  data.forEach(d => {
-    const div = document.createElement("div");
-
-    div.innerHTML = `
-      ${d.date} ${d.category} ¥${d.amount}
-      <button onclick="deleteItem('${d.id}')">削除</button>
-    `;
-
-    list.appendChild(div);
-
-    if (d.date.startsWith(month)) {
-      if (d.type === "income") income += d.amount;
-      else {
-        expense += d.amount;
-        categoryTotals[d.category] =
-          (categoryTotals[d.category] || 0) + d.amount;
-      }
-    }
+// 描画
+function render(){
+  // 売上
+  salesList.innerHTML="";
+  sales.forEach(d=>{
+    salesList.innerHTML += `<tr>
+<td>${d.date}</td><td>${d.month}</td><td>${d.category}</td>
+<td>${d.account}</td><td>${d.amount}</td><td>${d.note}</td>
+</tr>`;
   });
 
-  document.getElementById("summary").innerHTML =
-    `売上:${income} 経費:${expense} 利益:${income-expense}`;
+  // 経費
+  expenseList.innerHTML="";
+  expense.forEach(d=>{
+    expenseList.innerHTML += `<tr>
+<td>${d.date}</td><td>${d.month}</td><td>${d.account}</td>
+<td>${d.payment}</td><td>${d.amount}</td><td>${d.rate}</td>
+<td>${d.final}</td><td>${d.note}</td>
+</tr>`;
+  });
 
-  if (window.chart) window.chart.destroy();
+  updateMonthFilter();
+  calc();
+}
 
-  window.chart = new Chart(document.getElementById("chart"), {
-    type: "doughnut",
-    data: {
-      labels: Object.keys(categoryTotals),
-      datasets: [{ data: Object.values(categoryTotals) }]
-    }
+// 月フィルター
+function updateMonthFilter(){
+  let months = [...new Set([...sales.map(s=>s.month), ...expense.map(e=>e.month)])];
+  monthFilter.innerHTML="";
+  months.forEach(m=>{
+    monthFilter.innerHTML += `<option>${m}</option>`;
   });
 }
 
-// CSV出力
-window.downloadCSV = function() {
-  let csv = "日付,区分,科目,金額\n";
+// SUMIF再現
+function calc(){
+  const m = monthFilter.value;
 
-  data.forEach(d => {
-    csv += `${d.date},${d.type},${d.category},${d.amount}\n`;
+  const salesTotal = sales
+    .filter(s=>s.month==m)
+    .reduce((a,b)=>a+b.amount,0);
+
+  const expenseTotal = expense
+    .filter(e=>e.month==m)
+    .reduce((a,b)=>a+b.final,0);
+
+  const profit = salesTotal - expenseTotal;
+
+  summary.innerHTML =
+    `売上合計：${salesTotal}円<br>
+     経費合計：${expenseTotal}円<br>
+     利益：${profit}円`;
+}
+
+// CSV（シート形式）
+function downloadCSV(){
+  let csv="売上管理\n日付,月,売上区分,勘定科目,売上金額,備考\n";
+  sales.forEach(s=>{
+    csv += `${s.date},${s.month},${s.category},${s.account},${s.amount},${s.note}\n`;
   });
 
-  const blob = new Blob([csv], { type: "text/csv" });
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = "keiri.csv";
-  link.click();
-};
+  csv+="\n経費管理\n日付,月,勘定科目,支払方法,支払金額,按分率,経費計上額,備考\n";
+  expense.forEach(e=>{
+    csv += `${e.date},${e.month},${e.account},${e.payment},${e.amount},${e.rate},${e.final},${e.note}\n`;
+  });
 
+  const blob=new Blob([csv],{type:"text/csv"});
+  const link=document.createElement("a");
+  link.href=URL.createObjectURL(blob);
+  link.download="keiri.csv";
+  link.click();
+}
+
+monthFilter.addEventListener("change", calc);
+
+render();
 </script>
 
 </body>
