@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="apple-mobile-web-app-title" content="経理">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>かんたん帳簿</title>
 
@@ -13,7 +14,8 @@ input, select, button { width:100%; margin:5px 0; padding:10px; }
 input[type="date"] {
   width: 100%;
   -webkit-appearance: none;
-  appearance: none;}
+  appearance: none;
+}
 .hidden { display:none; }
 </style>
 </head>
@@ -89,9 +91,7 @@ input[type="date"] {
 
 <script>
 
-<script>
-
-// ===== ログイン（複数ユーザー）=====
+// ===== ユーザー（複数対応）=====
 const users = {
   "admin": "1234",
   "mama": "5678"
@@ -99,17 +99,18 @@ const users = {
 
 let currentUser = "";
 
+// ===== ログイン（修正版）=====
 function login(){
-  const idValue = id.value;
-  const passValue = pass.value;
+  const idValue = document.getElementById("id").value;
+  const passValue = document.getElementById("pass").value;
 
   if(users[idValue] && users[idValue] === passValue){
     currentUser = idValue;
 
-    loginArea.classList.add("hidden");
-    mainArea.classList.remove("hidden");
+    document.getElementById("loginArea").classList.add("hidden");
+    document.getElementById("mainArea").classList.remove("hidden");
 
-    loadData(); // ←ログイン時に読み込み
+    loadData(); // ←ユーザー別読み込み
   }else{
     alert("IDかパスワード違います");
   }
@@ -163,7 +164,7 @@ function addData(){
     });
   }
 
-  saveData(); // ←ユーザーごとに保存
+  saveData(); // ←ユーザー別保存
   calc();
 }
 
